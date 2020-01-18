@@ -50,19 +50,19 @@ ENV GO_JAVA_HOME="/gocd-jre"
 ARG UID=1000
 ARG GID=1000
 
-RUN \
 # add mode and permissions for files we added above
-  chmod 0755 /usr/local/sbin/tini && \
-  chown root:root /usr/local/sbin/tini && \
 # add our user and group first to make sure their IDs get assigned consistently,
 # regardless of whatever dependencies get added
 # add user to root group for gocd to work on openshift
+# install glibc and zlib for adoptopenjdk && \
+# See https://github.com/AdoptOpenJDK/openjdk-docker/blob/ce8b120411b131e283106ab89ea5921ebb1d1759/8/jdk/alpine/Dockerfile.hotspot.releases.slim#L24-L54 && \
+RUN \
+  chmod 0755 /usr/local/sbin/tini && \
+  chown root:root /usr/local/sbin/tini && \
   adduser -D -u ${UID} -s /bin/bash -G root go && \
     apk add --no-cache cyrus-sasl cyrus-sasl-plain sudo && \
   apk --no-cache upgrade && \
   apk add --no-cache nss git mercurial subversion openssh-client bash curl procps && \
-  # install glibc and zlib for adoptopenjdk && \
-  # See https://github.com/AdoptOpenJDK/openjdk-docker/blob/ce8b120411b131e283106ab89ea5921ebb1d1759/8/jdk/alpine/Dockerfile.hotspot.releases.slim#L24-L54 && \
     apk add --no-cache --virtual .build-deps curl binutils && \
     GLIBC_VER="2.29-r0" && \
     ALPINE_GLIBC_REPO="https://github.com/sgerrand/alpine-pkg-glibc/releases/download" && \
@@ -94,12 +94,11 @@ RUN \
     mv /tmp/libz/usr/lib/libz.so* /usr/glibc-compat/lib && \
     apk del --purge .build-deps glibc-i18n && \
     rm -rf /tmp/*.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/* && \
-  # end installing adoptopenjre  && \
-  curl --fail --location --silent --show-error 'https://github.com/AdoptOpenJDK/openjdk13-binaries/releases/download/jdk-13.0.1%2B9/OpenJDK13U-jre_x64_linux_hotspot_13.0.1_9.tar.gz' --output /tmp/jre.tar.gz && \
-  mkdir -p /gocd-jre && \
-  tar -xf /tmp/jre.tar.gz -C /gocd-jre --strip 1 && \
-  rm -rf /tmp/jre.tar.gz && \
-  mkdir -p /go-agent /docker-entrypoint.d /go /godata
+    curl --fail --location --silent --show-error 'https://github.com/AdoptOpenJDK/openjdk13-binaries/releases/download/jdk-13.0.1%2B9/OpenJDK13U-jre_x64_linux_hotspot_13.0.1_9.tar.gz' --output /tmp/jre.tar.gz && \
+    mkdir -p /gocd-jre && \
+    tar -xf /tmp/jre.tar.gz -C /gocd-jre --strip 1 && \
+    rm -rf /tmp/jre.tar.gz && \
+    mkdir -p /go-agent /docker-entrypoint.d /go /godata
 
 ADD docker-entrypoint.sh /
 
@@ -112,8 +111,18 @@ COPY --chown=root:root dockerd-sudo /etc/sudoers.d/dockerd-sudo
 RUN chown -R go:root /docker-entrypoint.d /go /godata /docker-entrypoint.sh \
     && chmod -R g=u /docker-entrypoint.d /go /godata /docker-entrypoint.sh
 
-  COPY --chown=root:root run-docker-daemon.sh /
+COPY --chown=root:root run-docker-daemon.sh /
+
+# installing kubectl
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+RUN chmod +x ./kubectl
+RUN mv ./kubectl /usr/local/bin/
+
+# installing Rancher CLI
+RUN wget https://releases.rancher.com/cli2/v2.3.2/rancher-linux-amd64-v2.3.2.tar.gz
+RUN tar -xf rancher-linux-amd64-v2.3.2.tar.gz  ./rancher-v2.3.2/rancher -C .
+RUN chmod +x ./rancher-v2.3.2/rancher
+RUN mv ./rancher-v2.3.2/rancher /usr/local/bin/
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-
 USER go
