@@ -124,5 +124,7 @@ RUN tar -xf rancher-linux-amd64-v2.3.2.tar.gz  ./rancher-v2.3.2/rancher -C .
 RUN chmod +x ./rancher-v2.3.2/rancher
 RUN mv ./rancher-v2.3.2/rancher /usr/local/bin/
 
+RUN apk add --update nodejs nodejs-npm
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 USER go
